@@ -1,3 +1,4 @@
+// story.js (universal version)
 document.addEventListener('DOMContentLoaded', () => {
     // Speech Synthesis Setup
     const synth = window.speechSynthesis;
@@ -5,43 +6,38 @@ document.addEventListener('DOMContentLoaded', () => {
     let utterance = null;
     let isSpeaking = false;
 
-    // Voice Configuration
-    let voices = [];
-    
+    // Universal Story Content Selector
+    const storyContent = document.querySelector('.story-section #story');
+
+    // Voice Management
     const loadVoices = () => {
-        voices = synth.getVoices();
-        console.log('Available voices:', voices);
+        const voices = synth.getVoices();
+        return voices.filter(voice => voice.lang.includes('en')); // English first
     };
 
-    // Initialize voices
-    synth.onvoiceschanged = loadVoices;
-
-    // Speech Control Function
+    // Speech Control
     function toggleSpeech() {
-        if (!synth) {
-            console.error('Speech synthesis not supported');
-            return;
-        }
+        if (!synth) return;
 
         if (isSpeaking) {
-            // Stop speaking
             synth.cancel();
-            isSpeaking = false;
             updateButtonState(false);
             return;
         }
 
-        // Get story content
-        const storyContent = document.getElementById('story').textContent;
+        // Get text from current story
+        const text = Array.from(storyContent.querySelectorAll('p'))
+            .map(p => p.textContent)
+            .join('\n'); // Natural paragraph pauses
+
+        utterance = new SpeechSynthesisUtterance(text);
         
-        // Create new utterance
-        utterance = new SpeechSynthesisUtterance(storyContent);
-        
-        // Configure utterance
-        utterance.voice = voices.find(v => v.lang === 'en') || voices[0];
-        utterance.volume = 1;
+        // Voice Configuration
+        const voices = loadVoices();
+        utterance.voice = voices.find(v => v.name.includes('Female')) || voices[0];
         utterance.rate = 1;
         utterance.pitch = 1;
+        utterance.volume = 1;
 
         // Event Handlers
         utterance.onstart = () => {
@@ -54,45 +50,26 @@ document.addEventListener('DOMContentLoaded', () => {
             updateButtonState(false);
         };
 
-        utterance.onerror = (err) => {
-            console.error('Speech error:', err);
-            isSpeaking = false;
-            updateButtonState(false);
-        };
-
-        // Start speaking
         synth.speak(utterance);
     }
 
-    // Update button state
+    // Universal Button Update
     function updateButtonState(speaking) {
         const icon = speakerBtn.querySelector('i');
-        if (speaking) {
-            speakerBtn.classList.remove('btn-primary');
-            speakerBtn.classList.add('btn-danger');
-            icon.classList.remove('bi-speaker');
-            icon.classList.add('bi-stop-circle');
-            speakerBtn.innerHTML = '<i class="bi bi-stop-circle"></i> Stop Reading';
-        } else {
-            speakerBtn.classList.remove('btn-danger');
-            speakerBtn.classList.add('btn-primary');
-            icon.classList.remove('bi-stop-circle');
-            icon.classList.add('bi-speaker');
-            speakerBtn.innerHTML = '<i class="bi bi-speaker"></i> Read Story';
-        }
+        speakerBtn.classList.toggle('btn-danger', speaking);
+        speakerBtn.classList.toggle('btn-primary', !speaking);
+        icon.classList.toggle('bi-stop-circle', speaking);
+        icon.classList.toggle('bi-speaker', !speaking);
+        speakerBtn.textContent = speaking ? ' Stop Reading' : ' Read Story';
     }
 
-    // Initialize speech functionality
-    if (!synth) {
+    // Initialize for All Pages
+    if ('speechSynthesis' in window) {
+        synth.onvoiceschanged = loadVoices;
+        speakerBtn?.addEventListener('click', toggleSpeech);
+        speakerBtn?.removeAttribute('onclick');
+    } else if (speakerBtn) {
         speakerBtn.disabled = true;
         speakerBtn.innerHTML = '<i class="bi bi-x-circle"></i> Audio Not Supported';
-    } else {
-        // Attach event listener (remove onclick from HTML)
-        speakerBtn.addEventListener('click', toggleSpeech);
-        // Remove inline onclick attribute from HTML
-        speakerBtn.removeAttribute('onclick');
     }
-
-    // Initialize voices on load
-    loadVoices();
-}); 
+});
